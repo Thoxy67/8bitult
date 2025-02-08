@@ -1,13 +1,15 @@
-use heigtbitult::{config, keyboard, BleKeyboard};
 use clap::Parser;
 use colored::Colorize;
+use core::time;
+use heigtbitult::{config, keyboard, BleKeyboard};
 use profile::Profile;
+use std::{error::Error, path::PathBuf};
+use tabled::{
+    settings::{object::Rows, themes::Colorization, Alignment, Color, Style},
+    Table, Tabled,
+};
 use tokio::time::sleep;
 use tracing::{instrument::WithSubscriber, Level};
-use core::time;
-use std::{error::Error, path::PathBuf};
-use tabled::{settings::{object::Rows, themes::Colorization, Alignment, Color, Style}, Table, Tabled};
-
 
 #[derive(Tabled)]
 struct KeyBindingRow {
@@ -28,9 +30,13 @@ mod profile;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Path to the TOML profile
-    #[arg(short, long)]
-    profile: Option<PathBuf>,
+    /// Profile name to load from profiles directory
+    #[arg(short = 'p', long = "profile", group = "input")]
+    profile_name: Option<String>,
+
+    /// Path to a specific TOML profile file
+    #[arg(short = 'c', long = "config", group = "input")]
+    config_file: Option<PathBuf>,
 
     /// Read current bindings without modifying them
     #[arg(short, long)]
@@ -48,7 +54,9 @@ fn print_step(text: &str) {
 }
 
 fn print_bindings(bindings: &[[u8; 4]], button_names: &[&str]) {
-    let rows: Vec<KeyBindingRow> = bindings.iter().enumerate()
+    let rows: Vec<KeyBindingRow> = bindings
+        .iter()
+        .enumerate()
         .map(|(i, binding)| {
             let key_names: Vec<String> = binding
                 .iter()
@@ -98,44 +106,43 @@ fn print_warning(text: &str) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
-        // all spans/events with a level higher than TRACE (e.g, info, warn, etc.)
-        // will be written to stdout.
         .with_max_level(Level::DEBUG)
-        // sets this to be the default, global collector for this application.
         .init();
     let cli = Cli::parse();
-    
+
     print_section_header("8Bitdo Micro Configurator");
-    
+
     print_step("Searching for device...");
     let mut keyboard = BleKeyboard::new().await?;
     print_success("Device connected successfully!");
-    
+
     print_step("Reading current bindings...");
     let current_bindings = keyboard.read_current_bindings().await?;
     println!("\nCurrent bindings configuration:");
     print_bindings(&current_bindings, &config::BUTTON_NAMES);
 
     if !cli.read {
-        if let Some(profile_path) = cli.profile {
-            print_step("Loading profile...");
-            let profile = Profile::load(profile_path.to_str().unwrap())?;
+        if let Some(profile) =
+            Profile::load_from_name_or_path(cli.profile_name.as_deref(), cli.config_file.as_ref())?
+        {
             print_success(&format!("Loaded profile: '{}'", profile.name));
-            
+
             let new_bindings = profile.to_key_bindings()?;
-            
+
             print_step("Writing new bindings...");
             keyboard.write_bindings(&new_bindings).await?;
             print_success("Bindings written successfully");
-            
+
             sleep(time::Duration::from_secs(2)).await;
 
             print_step("Verifying new bindings...");
             let updated_bindings = keyboard.read_current_bindings().await?;
-            
-            // Vérifier si les bindings correspondent
-            let matches = new_bindings.iter().zip(updated_bindings.iter()).all(|(a, b)| a == b);
-            
+
+            let matches = new_bindings
+                .iter()
+                .zip(updated_bindings.iter())
+                .all(|(a, b)| a == b);
+
             println!("\nNew bindings configuration:");
             print_bindings(&updated_bindings, &config::BUTTON_NAMES);
 
@@ -152,6 +159,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     print_step("Disconnecting device...");
     keyboard.disconnect().await?;
     print_success("Device disconnected successfully");
-    
+
     Ok(())
 }

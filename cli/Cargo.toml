@@ -2,6 +2,12 @@
 name = "heigtbitult-cli"
 version = "0.1.0"
 edition = "2021"
+default-run = "8bitult-cli"
+
+[[bin]]
+name = "8bitult-cli"
+path = "src/main.rs"
+default = true
 
 [dependencies]
 heigtbitult = { path = ".." }
@@ -16,3 +22,4 @@ colored = "3.0.0"
 tabled = "0.18.0"
 tracing-subscriber = "0.3.19"
 tracing = "0.1.41"
+dirs = "6.0.0"

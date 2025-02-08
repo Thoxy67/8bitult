@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
+use colored::Colorize;
 use heigtbitult::{bindings::types::KeyBinding, keyboard::*};
 use serde_derive::Deserialize;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
+use std::path::PathBuf;
 
 fn key_name_to_value(key_name: &str) -> Result<u8> {
     if let Some(hex_str) = key_name
@@ -164,6 +167,78 @@ impl Profile {
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read profile from {}", path))?;
         toml::from_str(&content).with_context(|| format!("Failed to parse TOML from {}", path))
+    }
+
+    fn list_available_profiles() -> Result<Vec<(String, PathBuf)>> {
+        let mut profiles = Vec::new();
+
+        let search_paths = vec![
+            PathBuf::from("./profiles"),
+            dirs::config_dir()
+                .map(|mut p| {
+                    p.push("heigtbitult");
+                    p.push("profiles");
+                    p
+                })
+                .unwrap_or_default(),
+        ];
+
+        for base_path in search_paths {
+            if base_path.exists() {
+                for entry in fs::read_dir(&base_path)? {
+                    let entry = entry?;
+                    let path = entry.path();
+
+                    // Vérifier si c'est un fichier .toml
+                    if path.is_file() && path.extension() == Some(OsStr::new("toml")) {
+                        // Charger le profil pour obtenir son nom
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            if let Ok(profile) = toml::from_str::<Profile>(&content) {
+                                profiles.push((profile.name, path));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(profiles)
+    }
+
+    fn find_profile(name: &str) -> Result<PathBuf> {
+        let profiles = Self::list_available_profiles()?;
+
+        // Chercher le profil par son nom dans le TOML
+        if let Some((_, path)) = profiles
+            .iter()
+            .find(|(profile_name, _)| profile_name == name)
+        {
+            Ok(path.clone())
+        } else {
+            println!("\nAvailable profiles:");
+            for (name, path) in profiles {
+                println!("  - {} ({})", name.bold(), path.display());
+            }
+            Err(anyhow::anyhow!("Profile '{}' not found", name))
+        }
+    }
+
+    pub fn load_from_name_or_path(
+        profile_name: Option<&str>,
+        config_path: Option<&PathBuf>,
+    ) -> Result<Option<Self>> {
+        match (profile_name, config_path) {
+            (Some(name), None) => {
+                // Chercher le profil dans les dossiers possibles
+                let profile_path = Self::find_profile(name)?;
+                Ok(Some(Self::load(profile_path.to_str().unwrap())?))
+            }
+            (None, Some(path)) => Ok(Some(Self::load(path.to_str().unwrap())?)),
+            (None, None) => Ok(None),
+            (Some(_), Some(_)) => Err(anyhow::anyhow!(
+                "Cannot specify both profile name and config file"
+            )),
+        }
     }
 
     pub fn to_key_bindings(&self) -> Result<Vec<KeyBinding>> {
