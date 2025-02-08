@@ -169,14 +169,14 @@ impl Profile {
         toml::from_str(&content).with_context(|| format!("Failed to parse TOML from {}", path))
     }
 
-    fn list_available_profiles() -> Result<Vec<(String, PathBuf)>> {
+    pub fn list_available_profiles() -> Result<Vec<(String, PathBuf)>> {
         let mut profiles = Vec::new();
 
         let search_paths = vec![
             PathBuf::from("./profiles"),
             dirs::config_dir()
                 .map(|mut p| {
-                    p.push("heigtbitult");
+                    p.push("8bitult");
                     p.push("profiles");
                     p
                 })

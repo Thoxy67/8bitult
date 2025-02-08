@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use colored::Colorize;
 use core::time;
 use heigtbitult::{config, keyboard, BleKeyboard};
@@ -9,7 +9,7 @@ use tabled::{
     Table, Tabled,
 };
 use tokio::time::sleep;
-use tracing::{instrument::WithSubscriber, Level};
+use tracing::Level;
 
 #[derive(Tabled)]
 struct KeyBindingRow {
@@ -30,17 +30,28 @@ mod profile;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Profile name to load from profiles directory
-    #[arg(short = 'p', long = "profile", group = "input")]
-    profile_name: Option<String>,
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    /// Path to a specific TOML profile file
-    #[arg(short = 'c', long = "config", group = "input")]
-    config_file: Option<PathBuf>,
+#[derive(Subcommand)]
+enum Commands {
+    /// List all available profiles
+    List,
 
-    /// Read current bindings without modifying them
-    #[arg(short, long)]
-    read: bool,
+    /// Read current bindings from device
+    Read,
+
+    /// Attach a profile to the device
+    Attach {
+        /// Profile name to load from profiles directory
+        #[arg(short = 'p', long = "profile", group = "input")]
+        profile_name: Option<String>,
+
+        /// Path to a specific TOML profile file
+        #[arg(short = 'c', long = "config", group = "input")]
+        config_file: Option<PathBuf>,
+    },
 }
 
 fn print_section_header(text: &str) {
@@ -112,53 +123,80 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     print_section_header("8Bitdo Micro Configurator");
 
-    print_step("Searching for device...");
-    let mut keyboard = BleKeyboard::new().await?;
-    print_success("Device connected successfully!");
-
-    print_step("Reading current bindings...");
-    let current_bindings = keyboard.read_current_bindings().await?;
-    println!("\nCurrent bindings configuration:");
-    print_bindings(&current_bindings, &config::BUTTON_NAMES);
-
-    if !cli.read {
-        if let Some(profile) =
-            Profile::load_from_name_or_path(cli.profile_name.as_deref(), cli.config_file.as_ref())?
-        {
-            print_success(&format!("Loaded profile: '{}'", profile.name));
-
-            let new_bindings = profile.to_key_bindings()?;
-
-            print_step("Writing new bindings...");
-            keyboard.write_bindings(&new_bindings).await?;
-            print_success("Bindings written successfully");
-
-            sleep(time::Duration::from_secs(2)).await;
-
-            print_step("Verifying new bindings...");
-            let updated_bindings = keyboard.read_current_bindings().await?;
-
-            let matches = new_bindings
-                .iter()
-                .zip(updated_bindings.iter())
-                .all(|(a, b)| a == b);
-
-            println!("\nNew bindings configuration:");
-            print_bindings(&updated_bindings, &config::BUTTON_NAMES);
-
-            if !matches {
-                print_warning("Warning: Some bindings might not have been applied correctly");
+    match cli.command {
+        Commands::List => {
+            let profiles = Profile::list_available_profiles()?;
+            if profiles.is_empty() {
+                println!("\nNo profiles found.");
             } else {
-                print_success("All bindings verified successfully");
+                println!("\nAvailable profiles:");
+                for (name, path) in profiles {
+                    println!("  - {} ({})", name.bold(), path.display());
+                }
             }
-        } else {
-            print_warning("No profile specified, skipping write");
+        }
+
+        Commands::Read => {
+            print_step("Searching for device...");
+            let keyboard = BleKeyboard::new().await?;
+            print_success("Device connected successfully!");
+
+            print_step("Reading current bindings...");
+            let current_bindings = keyboard.read_current_bindings().await?;
+            println!("\nCurrent bindings configuration:");
+            print_bindings(&current_bindings, &config::BUTTON_NAMES);
+
+            print_step("Disconnecting device...");
+            keyboard.disconnect().await?;
+            print_success("Device disconnected successfully");
+        }
+
+        Commands::Attach {
+            profile_name,
+            config_file,
+        } => {
+            print_step("Searching for device...");
+            let mut keyboard = BleKeyboard::new().await?;
+            print_success("Device connected successfully!");
+
+            if let Some(profile) =
+                Profile::load_from_name_or_path(profile_name.as_deref(), config_file.as_ref())?
+            {
+                print_success(&format!("Loaded profile: '{}'", profile.name));
+
+                let new_bindings = profile.to_key_bindings()?;
+
+                print_step("Writing new bindings...");
+                keyboard.write_bindings(&new_bindings).await?;
+                print_success("Bindings written successfully");
+
+                sleep(time::Duration::from_secs(2)).await;
+
+                print_step("Verifying new bindings...");
+                let updated_bindings = keyboard.read_current_bindings().await?;
+
+                let matches = new_bindings
+                    .iter()
+                    .zip(updated_bindings.iter())
+                    .all(|(a, b)| a == b);
+
+                println!("\nNew bindings configuration:");
+                print_bindings(&updated_bindings, &config::BUTTON_NAMES);
+
+                if !matches {
+                    print_warning("Warning: Some bindings might not have been applied correctly");
+                } else {
+                    print_success("All bindings verified successfully");
+                }
+            } else {
+                print_warning("No profile specified, skipping write");
+            }
+
+            print_step("Disconnecting device...");
+            keyboard.disconnect().await?;
+            print_success("Device disconnected successfully");
         }
     }
-
-    print_step("Disconnecting device...");
-    keyboard.disconnect().await?;
-    print_success("Device disconnected successfully");
 
     Ok(())
 }
