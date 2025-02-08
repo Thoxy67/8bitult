@@ -1,0 +1,15 @@
+[package]
+name = "heigtbitult"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["cli"]
+default-members = ["cli"]
+
+
+[dependencies]
+btleplug = "0.11.7"
+futures = "0.3.31"
+serde = { version = "1.0.217", features = ["derive"] }
+tokio = { version = "1.43.0", features = ["full"] }
