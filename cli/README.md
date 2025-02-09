@@ -37,13 +37,15 @@ The binary will be available at `target/release/8bitult-cli`
 ```
 
 Available commands:
-- `list`: Display all available binding profiles
+- `list`: Display all available binding profiles with their descriptions
 - `read`: Read and display current device bindings
 - `attach`: Apply a binding profile to the device
+- `save`: Save current device configuration as a new profile
+- `backup`: Import or export profiles
 
 ### List Available Profiles
 
-List all available binding profiles:
+List all available binding profiles with their descriptions:
 
 ```bash
 8bitult-cli list
@@ -73,10 +75,43 @@ Apply a profile to your device using either the profile name or a direct path:
 8bitult-cli attach -c /path/to/profile.toml
 ```
 
+### Save Current Configuration
+
+Save the current device configuration as a new profile:
+
+```bash
+# Basic save with name
+8bitult-cli save -n "My Profile"
+
+# Save with description
+8bitult-cli save -n "My Profile" -d "Custom profile for gaming"
+
+# Save to specific location
+8bitult-cli save -n "My Profile" -o /path/to/save/profile.toml
+```
+
+### Backup Management
+
+Export all profiles to an archive:
+```bash
+# Export to default backup.tar.zst
+8bitult-cli backup --export
+
+# Export to specific file
+8bitult-cli backup --export --save my_backup.tar.zst
+```
+
+Import profiles from archive(s):
+```bash
+# Import profiles from .tar.zst files in current directory
+8bitult-cli backup --import
+```
+
 ## Profile Configuration
 
 Profiles are defined in TOML format and must include:
 - A `name` field identifying the profile
+- An optional `description` field providing additional information
 - A `bindings` section mapping buttons to their key assignments
 - Each button can have 0 to 4 key bindings
 - Keys can be specified by name or using `keycode(XX)` format where XX is a hexadecimal value

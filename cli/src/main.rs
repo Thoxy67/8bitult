@@ -38,8 +38,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             commands::handle_attach(profile_name, config_file).await?;
         }
-        cli::Commands::Save { name, output } => {
-            commands::handle_save(name, output).await?;
+        cli::Commands::Save { name,description, output } => {
+            commands::handle_save(name, description, output).await?;
+        }
+        cli::Commands::Backup {
+            import,
+            export,
+            save,
+        } => {
+            commands::handle_backup(import, export, save).await?;
         }
     }
 

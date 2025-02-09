@@ -1,11 +1,27 @@
 use anyhow::Result;
+use backup::{export_profiles, import_profiles};
 use colored::Colorize;
 use core::time;
 use heigtbitult::{config, BleKeyboard};
 use std::path::PathBuf;
 use tokio::time::sleep;
 
+mod backup;
+
 use crate::{profile::Profile, ui};
+
+pub async fn handle_backup(
+    import: bool,
+    export: bool,
+    save: Option<PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if import {
+        import_profiles()?;
+    } else if export {
+        export_profiles(save)?;
+    }
+    Ok(())
+}
 
 pub async fn handle_list() -> Result<(), Box<dyn std::error::Error>> {
     let profiles = Profile::list_available_profiles()?;
@@ -14,7 +30,17 @@ pub async fn handle_list() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!("\nAvailable profiles:");
         for (name, path) in profiles {
-            println!("  - {} ({})", name.bold(), path.display());
+            if let Ok(profile) = Profile::load(path.to_str().unwrap()) {
+                match profile.description {
+                    Some(desc) => println!(
+                        "  - {} ({})\n    {}",
+                        name.bold(),
+                        path.display(),
+                        desc.bright_black()
+                    ),
+                    None => println!("  - {} ({})", name.bold(), path.display()),
+                }
+            }
         }
     }
     Ok(())
@@ -27,6 +53,23 @@ pub async fn handle_read() -> Result<(), Box<dyn std::error::Error>> {
 
     ui::print_step("Reading current bindings...");
     let current_bindings = keyboard.read_current_bindings().await?;
+
+    // Vérifier si la configuration correspond à un profil existant
+    let profiles = Profile::list_available_profiles()?;
+    for (name, path) in profiles {
+        if let Ok(profile) = Profile::load(path.to_str().unwrap()) {
+            if let Ok(profile_bindings) = profile.to_key_bindings() {
+                if current_bindings == profile_bindings {
+                    ui::print_success(&format!(
+                        "Current configuration matches profile: {}",
+                        name.bold()
+                    ));
+                    break;
+                }
+            }
+        }
+    }
+
     println!("\nCurrent bindings configuration:");
     ui::print_bindings(&current_bindings, &config::BUTTON_NAMES);
 
@@ -85,6 +128,7 @@ pub async fn handle_attach(
 
 pub async fn handle_save(
     name: String,
+    description: Option<String>,
     output: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     ui::print_step("Searching for device...");
@@ -97,10 +141,8 @@ pub async fn handle_save(
     println!("\nCurrent bindings configuration:");
     ui::print_bindings(&current_bindings, &config::BUTTON_NAMES);
 
-    // Créer le profil à partir des bindings actuels
-    let profile = Profile::from_key_bindings(name.clone(), &current_bindings);
+    let profile = Profile::from_key_bindings(name.clone(), &current_bindings, description);
 
-    // Déterminer le chemin de sauvegarde
     let save_path = output.unwrap_or_else(|| Profile::get_default_save_path(&name));
 
     ui::print_step(&format!("Saving profile to {:?}...", save_path));

@@ -1,4 +1,5 @@
 name = "Default"
+description = "Default 8BitDo Micro keyboard layout"
 
 [bindings]
 A = ["G"]

@@ -161,6 +161,7 @@ fn key_name_to_value(key_name: &str) -> Result<u8> {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Profile {
     pub name: String,
+    pub description: Option<String>,
     pub bindings: HashMap<String, Vec<String>>,
 }
 
@@ -267,7 +268,11 @@ impl Profile {
         Ok(result)
     }
 
-    pub fn from_key_bindings(name: String, bindings: &[KeyBinding]) -> Self {
+    pub fn from_key_bindings(
+        name: String,
+        bindings: &[KeyBinding],
+        description: Option<String>,
+    ) -> Self {
         let mut binding_map = HashMap::new();
 
         for (i, binding) in bindings.iter().enumerate() {
@@ -283,6 +288,7 @@ impl Profile {
 
         Self {
             name,
+            description,
             bindings: binding_map,
         }
     }

@@ -22,7 +22,7 @@ pub struct BleKeyboard {
 impl BleKeyboard {
     pub async fn new() -> Result<Self, Box<dyn Error>> {
         ensure_bluetooth_enabled().await?;
-        
+
         let manager = Manager::new().await?;
         let adapter_list = manager.adapters().await?;
 
