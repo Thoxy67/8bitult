@@ -62,7 +62,7 @@ impl BleKeyboard {
         Ok(())
     }
 
-    pub async fn read_current_bindings(&self) -> Result<Vec<KeyBinding>, Box<dyn Error>> {
+    pub async fn read_current_bindings(&mut self) -> Result<Vec<KeyBinding>, Box<dyn Error>> {
         if !self
             .characteristic
             .properties
@@ -102,7 +102,7 @@ impl BleKeyboard {
             let bindings = parse_binding_notification(&notification, 23, 55);
             all_bindings.extend(bindings);
         }
-
+        self.reset_command().await?;
         self.peripheral.unsubscribe(&self.characteristic).await?;
         Ok(all_bindings)
     }
@@ -153,6 +153,21 @@ impl BleKeyboard {
                 .await?;
         }
 
+        self.reset_command().await?;
+
+        Ok(())
+    }
+
+    async fn reset_command(&mut self) -> Result<(), Box<dyn Error>> {
+        for cmd in bindings::commands::RESET_COMMAND {
+            self.peripheral
+                .write(
+                    &self.characteristic,
+                    cmd,
+                    btleplug::api::WriteType::WithResponse,
+                )
+                .await?;
+        }
         Ok(())
     }
 }

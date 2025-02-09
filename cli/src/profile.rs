@@ -242,7 +242,7 @@ impl Profile {
     }
 
     pub fn to_key_bindings(&self) -> Result<Vec<KeyBinding>> {
-        let button_map: HashMap<_, _> = crate::config::BUTTON_NAMES
+        let button_map: HashMap<_, _> = heigtbitult::config::BUTTON_NAMES
             .iter()
             .enumerate()
             .map(|(i, &name)| (name, i))
