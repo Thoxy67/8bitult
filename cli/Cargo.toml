@@ -3,6 +3,7 @@ name = "heigtbitult-cli"
 version = "0.1.0"
 edition = "2021"
 default-run = "8bitult-cli"
+authors = ["Thoxy"]
 
 [[bin]]
 name = "8bitult-cli"

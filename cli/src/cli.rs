@@ -4,6 +4,10 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
+    /// Verbosity level (-v = info, -vv = debug, -vvv = trace)
+    #[arg(short = 'v', long = "verbose", action = clap::ArgAction::Count)]
+    pub verbose: u8,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -25,5 +29,16 @@ pub enum Commands {
         /// Path to a specific TOML profile file
         #[arg(short = 'c', long = "config", group = "input")]
         config_file: Option<PathBuf>,
+    },
+
+    /// Save current device configuration as a new profile
+    Save {
+        /// Name of the new profile
+        #[arg(short = 'n', long = "name")]
+        name: String,
+
+        /// Save path (defaults to user config directory)
+        #[arg(short = 'o', long = "output")]
+        output: Option<PathBuf>,
     },
 }

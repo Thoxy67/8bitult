@@ -493,6 +493,7 @@ dependencies = [
  "futures",
  "serde",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

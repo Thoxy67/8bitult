@@ -1,16 +1,17 @@
+// lib.rs
 pub mod bindings;
 pub mod bluetooth;
 pub mod config;
 pub mod keyboard;
 
 use bindings::types::KeyBinding;
-use bindings::utils::{create_binding_command, parse_binding_notification};
-use bluetooth::characteristic::{get_write_characteristic, wait_for_notification};
+use bluetooth::characteristic::get_write_characteristic;
 use bluetooth::connect::connect_with_retry;
-use btleplug::api::{Central, CharPropFlags, Manager as _, Peripheral, ScanFilter};
+use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter};
 use btleplug::platform::{Manager, Peripheral as BlePeripheral};
-use config::{DEVICE_NAME, TIMEOUT};
+use config::DEVICE_NAME;
 use std::error::Error;
+use tracing::{debug, error, info};
 
 pub struct BleKeyboard {
     peripheral: BlePeripheral,
@@ -23,18 +24,22 @@ impl BleKeyboard {
         let adapter_list = manager.adapters().await?;
 
         if adapter_list.is_empty() {
+            error!("No Bluetooth adapters found");
             return Err("No Bluetooth adapters found".into());
         }
 
         let mut found_device = None;
         for adapter in adapter_list.iter() {
+            debug!("Scanning for devices on adapter");
             adapter.start_scan(ScanFilter::default()).await?;
             let peripherals = adapter.peripherals().await?;
 
             for peripheral in peripherals.iter() {
                 let properties = peripheral.properties().await?;
                 if let Some(local_name) = properties.and_then(|p| p.local_name) {
+                    debug!(?local_name, "Found device");
                     if local_name == DEVICE_NAME {
+                        info!("Found target device: {}", DEVICE_NAME);
                         found_device = Some(peripheral.clone());
                         break;
                     }
@@ -42,14 +47,20 @@ impl BleKeyboard {
             }
         }
 
-        let peripheral = found_device.ok_or("Device not found")?;
+        let peripheral = found_device.ok_or_else(|| {
+            error!("Device {} not found", DEVICE_NAME);
+            "Device not found"
+        })?;
 
         if !peripheral.is_connected().await? {
+            debug!("Device not connected, attempting connection");
             connect_with_retry(&peripheral, 3).await?;
         }
 
+        debug!("Discovering services");
         peripheral.discover_services().await?;
         let characteristic = get_write_characteristic(&peripheral).await?;
+        info!("Successfully initialized BLE keyboard");
 
         Ok(BleKeyboard {
             peripheral,
@@ -63,111 +74,13 @@ impl BleKeyboard {
     }
 
     pub async fn read_current_bindings(&mut self) -> Result<Vec<KeyBinding>, Box<dyn Error>> {
-        if !self
-            .characteristic
-            .properties
-            .contains(CharPropFlags::NOTIFY)
-        {
-            return Err("Characteristic does not support notifications".into());
-        }
-
-        self.peripheral.subscribe(&self.characteristic).await?;
-        let mut notification_stream = self.peripheral.notifications().await?;
-        let mut all_bindings = Vec::new();
-
-        // Premier groupe de touches (1-8)
-        self.peripheral
-            .write(
-                &self.characteristic,
-                &bindings::commands::READ_BINDINGS_COMMANDS[0],
-                btleplug::api::WriteType::WithResponse,
-            )
-            .await?;
-
-        if let Ok(notification) = wait_for_notification(&mut notification_stream, TIMEOUT).await {
-            let bindings = parse_binding_notification(&notification, 28, 60);
-            all_bindings.extend(bindings);
-        }
-
-        // Deuxième groupe de touches (9-16)
-        self.peripheral
-            .write(
-                &self.characteristic,
-                &bindings::commands::READ_BINDINGS_COMMANDS[1],
-                btleplug::api::WriteType::WithResponse,
-            )
-            .await?;
-
-        if let Ok(notification) = wait_for_notification(&mut notification_stream, TIMEOUT).await {
-            let bindings = parse_binding_notification(&notification, 23, 55);
-            all_bindings.extend(bindings);
-        }
-        self.reset_command().await?;
-        self.peripheral.unsubscribe(&self.characteristic).await?;
-        Ok(all_bindings)
+        bindings::read::read_current_bindings(&self.peripheral, &self.characteristic).await
     }
 
     pub async fn write_bindings(&mut self, bindings: &[KeyBinding]) -> Result<(), Box<dyn Error>> {
         if bindings.len() != 16 {
             return Err("Expected exactly 16 key bindings".into());
         }
-
-        // Première commande (touches 1-8)
-        let cmd1 = create_binding_command(
-            &bindings::commands::SET_BINDINGS_COMMANDS[0],
-            &bindings[0..8],
-            29,
-            61,
-        );
-        self.peripheral
-            .write(
-                &self.characteristic,
-                &cmd1,
-                btleplug::api::WriteType::WithResponse,
-            )
-            .await?;
-
-        // Deuxième commande (touches 9-16)
-        let cmd2 = create_binding_command(
-            &bindings::commands::SET_BINDINGS_COMMANDS[1],
-            &bindings[8..16],
-            24,
-            56,
-        );
-        self.peripheral
-            .write(
-                &self.characteristic,
-                &cmd2,
-                btleplug::api::WriteType::WithResponse,
-            )
-            .await?;
-
-        // Commandes finales
-        for cmd in &bindings::commands::SET_BINDINGS_COMMANDS[2..] {
-            self.peripheral
-                .write(
-                    &self.characteristic,
-                    cmd,
-                    btleplug::api::WriteType::WithResponse,
-                )
-                .await?;
-        }
-
-        self.reset_command().await?;
-
-        Ok(())
-    }
-
-    async fn reset_command(&mut self) -> Result<(), Box<dyn Error>> {
-        for cmd in bindings::commands::RESET_COMMAND {
-            self.peripheral
-                .write(
-                    &self.characteristic,
-                    cmd,
-                    btleplug::api::WriteType::WithResponse,
-                )
-                .await?;
-        }
-        Ok(())
+        bindings::write::write_new_bindings(&self.peripheral, &self.characteristic, bindings).await
     }
 }

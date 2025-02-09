@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
 use heigtbitult::{bindings::types::KeyBinding, keyboard::*};
+use heigtbitult::{config, keyboard};
+use serde::Serialize;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn key_name_to_value(key_name: &str) -> Result<u8> {
     if let Some(hex_str) = key_name
@@ -156,7 +158,7 @@ fn key_name_to_value(key_name: &str) -> Result<u8> {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Profile {
     pub name: String,
     pub bindings: HashMap<String, Vec<String>>,
@@ -263,5 +265,48 @@ impl Profile {
         }
 
         Ok(result)
+    }
+
+    pub fn from_key_bindings(name: String, bindings: &[KeyBinding]) -> Self {
+        let mut binding_map = HashMap::new();
+
+        for (i, binding) in bindings.iter().enumerate() {
+            if binding.iter().any(|&k| k != KEY_NULL) {
+                let button_name = config::BUTTON_NAMES[i].to_string();
+                let key_names: Vec<String> = binding
+                    .iter()
+                    .map(|&key| keyboard::get_key_name(key))
+                    .collect();
+                binding_map.insert(button_name, key_names);
+            }
+        }
+
+        Self {
+            name,
+            bindings: binding_map,
+        }
+    }
+
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        // Créer le répertoire parent si nécessaire
+        if let Some(parent) = path.as_ref().parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let toml = toml::to_string_pretty(&self)?;
+        fs::write(path, toml)?;
+        Ok(())
+    }
+
+    pub fn get_default_save_path(name: &str) -> PathBuf {
+        if let Some(mut config_dir) = dirs::config_dir() {
+            config_dir.push("8bitult");
+            config_dir.push("profiles");
+            config_dir.push(format!("{}.toml", name.to_lowercase().replace(' ', "_")));
+            config_dir
+        } else {
+            PathBuf::from("profiles")
+                .join(format!("{}.toml", name.to_lowercase().replace(' ', "_")))
+        }
     }
 }

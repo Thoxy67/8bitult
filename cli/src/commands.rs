@@ -2,6 +2,7 @@ use anyhow::Result;
 use colored::Colorize;
 use core::time;
 use heigtbitult::{config, BleKeyboard};
+use std::path::PathBuf;
 use tokio::time::sleep;
 
 use crate::{profile::Profile, ui};
@@ -75,6 +76,36 @@ pub async fn handle_attach(
     } else {
         ui::print_warning("No profile specified, skipping write");
     }
+
+    ui::print_step("Disconnecting device...");
+    keyboard.disconnect().await?;
+    ui::print_success("Device disconnected successfully");
+    Ok(())
+}
+
+pub async fn handle_save(
+    name: String,
+    output: Option<PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    ui::print_step("Searching for device...");
+    let mut keyboard = BleKeyboard::new().await?;
+    ui::print_success("Device connected successfully!");
+
+    ui::print_step("Reading current bindings...");
+    let current_bindings = keyboard.read_current_bindings().await?;
+
+    println!("\nCurrent bindings configuration:");
+    ui::print_bindings(&current_bindings, &config::BUTTON_NAMES);
+
+    // Créer le profil à partir des bindings actuels
+    let profile = Profile::from_key_bindings(name.clone(), &current_bindings);
+
+    // Déterminer le chemin de sauvegarde
+    let save_path = output.unwrap_or_else(|| Profile::get_default_save_path(&name));
+
+    ui::print_step(&format!("Saving profile to {:?}...", save_path));
+    profile.save_to_file(&save_path)?;
+    ui::print_success("Profile saved successfully!");
 
     ui::print_step("Disconnecting device...");
     keyboard.disconnect().await?;
