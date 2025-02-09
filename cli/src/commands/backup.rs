@@ -3,34 +3,8 @@ use anyhow::Result;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
-use tar::{Archive, Builder};
-use zstd::stream::{decode_all, encode_all};
-
-pub fn import_profiles() -> Result<(), Box<dyn std::error::Error>> {
-    ui::print_step("Importing profiles...");
-
-    if let Some(config_dir) = dirs::config_dir() {
-        let profile_dir = config_dir.join("8bitult").join("profiles");
-        fs::create_dir_all(&profile_dir)?;
-
-        // Lire tous les fichiers .tar.zst dans le répertoire courant
-        for entry in fs::read_dir(".")? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().and_then(|s| s.to_str()) == Some("zst") {
-                let file = File::open(&path)?;
-                let decoded = decode_all(file)?;
-                let mut archive = Archive::new(decoded.as_slice());
-                archive.unpack(&profile_dir)?;
-
-                ui::print_success(&format!("Imported profiles from {:?}", path));
-            }
-        }
-    }
-
-    Ok(())
-}
+use tar::Builder;
+use zstd::stream::encode_all;
 
 pub fn export_profiles(save: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     ui::print_step("Exporting profiles...");

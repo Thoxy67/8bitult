@@ -1,9 +1,10 @@
 use anyhow::Result;
-use backup::{export_profiles, import_profiles};
 use colored::Colorize;
+use tar::Archive;
+use zstd::decode_all;
 use core::time;
 use heigtbitult::{config, BleKeyboard};
-use std::path::PathBuf;
+use std::{fs::{self, File}, path::PathBuf};
 use tokio::time::sleep;
 
 mod backup;
@@ -11,15 +12,34 @@ mod backup;
 use crate::{profile::Profile, ui};
 
 pub async fn handle_backup(
-    import: bool,
-    export: bool,
-    save: Option<PathBuf>,
+    import: Option<PathBuf>,
+    export: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if import {
-        import_profiles()?;
-    } else if export {
-        export_profiles(save)?;
+    match (import, export) {
+        (Some(import_path), None) => {
+            ui::print_step(&format!("Importing profiles from {:?}...", import_path));
+            let file = File::open(import_path)?;
+            let decoded = decode_all(file)?;
+            let mut archive = Archive::new(decoded.as_slice());
+            
+            if let Some(config_dir) = dirs::config_dir() {
+                let profile_dir = config_dir.join("8bitult").join("profiles");
+                fs::create_dir_all(&profile_dir)?;
+                archive.unpack(&profile_dir)?;
+                ui::print_success("Profiles imported successfully");
+            }
+        }
+        (None, Some(export_path)) => {
+            backup::export_profiles(Some(export_path))?;
+        }
+        _ => {
+            println!("Please specify either --import <path> or --export <path>");
+            println!("\nExample usage:");
+            println!("  Import: 8bitult-cli backup --import backup.tar.zst");
+            println!("  Export: 8bitult-cli backup --export backup.tar.zst");
+        }
     }
+    
     Ok(())
 }
 

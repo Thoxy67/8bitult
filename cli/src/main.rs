@@ -44,9 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cli::Commands::Backup {
             import,
             export,
-            save,
         } => {
-            commands::handle_backup(import, export, save).await?;
+            commands::handle_backup(import, export).await?;
         }
     }
 

@@ -50,14 +50,10 @@ pub enum Commands {
     Backup {
         /// Import profiles from archive
         #[arg(long = "import", group = "action")]
-        import: bool,
+        import: Option<PathBuf>,
 
         /// Export profiles to archive
         #[arg(long = "export", group = "action")]
-        export: bool,
-
-        /// Archive path for export
-        #[arg(long = "save", requires = "export")]
-        save: Option<PathBuf>,
+        export: Option<PathBuf>,
     },
 }
