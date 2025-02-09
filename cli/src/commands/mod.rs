@@ -1,11 +1,14 @@
 use anyhow::Result;
 use colored::Colorize;
-use tar::Archive;
-use zstd::decode_all;
 use core::time;
 use heigtbitult::{config, BleKeyboard};
-use std::{fs::{self, File}, path::PathBuf};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
+use tar::Archive;
 use tokio::time::sleep;
+use zstd::decode_all;
 
 mod backup;
 
@@ -21,7 +24,7 @@ pub async fn handle_backup(
             let file = File::open(import_path)?;
             let decoded = decode_all(file)?;
             let mut archive = Archive::new(decoded.as_slice());
-            
+
             if let Some(config_dir) = dirs::config_dir() {
                 let profile_dir = config_dir.join("8bitult").join("profiles");
                 fs::create_dir_all(&profile_dir)?;
@@ -39,7 +42,7 @@ pub async fn handle_backup(
             println!("  Export: 8bitult-cli backup --export backup.tar.zst");
         }
     }
-    
+
     Ok(())
 }
 
