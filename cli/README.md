@@ -120,6 +120,7 @@ Here's an example:
 
 ```toml
 name = "Default"
+description = "Default 8BitDo Micro keyboard layout"
 
 [bindings]
 A = ["G"]
@@ -127,9 +128,9 @@ B = ["J"]
 X = ["H"]
 Y = ["I"]
 L1 = ["K"]
-R1 = ["A"]
+R1 = ["M"]
 L2 = ["L"]
-R2 = ["A"]
+R2 = ["R"]
 SELECT = ["N"]
 START = ["O"]
 HOME = []
