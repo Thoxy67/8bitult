@@ -7,6 +7,7 @@ pub mod keyboard;
 use bindings::types::KeyBinding;
 use bluetooth::characteristic::get_write_characteristic;
 use bluetooth::connect::connect_with_retry;
+use bluetooth::power::ensure_bluetooth_enabled;
 use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter};
 use btleplug::platform::{Manager, Peripheral as BlePeripheral};
 use config::DEVICE_NAME;
@@ -20,6 +21,8 @@ pub struct BleKeyboard {
 
 impl BleKeyboard {
     pub async fn new() -> Result<Self, Box<dyn Error>> {
+        ensure_bluetooth_enabled().await?;
+        
         let manager = Manager::new().await?;
         let adapter_list = manager.adapters().await?;
 
