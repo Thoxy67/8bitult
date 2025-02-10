@@ -22,31 +22,35 @@ pub struct BleKeyboard {
 impl BleKeyboard {
     pub async fn new() -> Result<Self, Box<dyn Error>> {
         ensure_bluetooth_enabled().await?;
-
         let manager = Manager::new().await?;
         let adapter_list = manager.adapters().await?;
-
         if adapter_list.is_empty() {
             error!("No Bluetooth adapters found");
             return Err("No Bluetooth adapters found".into());
         }
-
+        
         let mut found_device = None;
-        for adapter in adapter_list.iter() {
+        'adapter_loop: for adapter in adapter_list.iter() {
             debug!("Scanning for devices on adapter");
             adapter.start_scan(ScanFilter::default()).await?;
-            let peripherals = adapter.peripherals().await?;
-
-            for peripheral in peripherals.iter() {
-                let properties = peripheral.properties().await?;
-                if let Some(local_name) = properties.and_then(|p| p.local_name) {
-                    debug!(?local_name, "Found device");
-                    if local_name == DEVICE_NAME {
-                        info!("Found target device: {}", DEVICE_NAME);
-                        found_device = Some(peripheral.clone());
-                        break;
+            
+            // Continuer le scan jusqu'à ce que l'appareil soit trouvé
+            while found_device.is_none() {
+                let peripherals = adapter.peripherals().await?;
+                for peripheral in peripherals.iter() {
+                    println!("{:?}", peripheral);
+                    let properties = peripheral.properties().await?;
+                    if let Some(local_name) = properties.and_then(|p| p.local_name) {
+                        debug!(?local_name, "Found device");
+                        if local_name == DEVICE_NAME {
+                            info!("Found target device: {}", DEVICE_NAME);
+                            found_device = Some(peripheral.clone());
+                            break 'adapter_loop;
+                        }
                     }
                 }
+                // Petite pause pour éviter de surcharger le CPU
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             }
         }
 
