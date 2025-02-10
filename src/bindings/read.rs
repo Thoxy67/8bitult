@@ -10,7 +10,7 @@ use crate::bindings::{
 };
 use crate::bluetooth::characteristic::wait_for_notification;
 use crate::config::{BUTTON_NAMES, TIMEOUT};
-use crate::keyboard;
+use crate::keyboard::KeyCode;
 
 pub async fn read_current_bindings(
     peripheral: &btleplug::platform::Peripheral,
@@ -44,7 +44,11 @@ pub async fn read_current_bindings(
                     for (i, binding) in bindings.iter().enumerate() {
                         let key_names: Vec<String> = binding
                             .iter()
-                            .map(|&key| keyboard::get_key_name(key))
+                            .map(|&key| {
+                                KeyCode::from_u8(key)
+                                    .map(|k| k.name())
+                                    .unwrap_or_else(|| format!("Unknown({:#04x})", key))
+                            })
                             .collect();
                         debug!(
                             button = BUTTON_NAMES[i],
@@ -95,7 +99,11 @@ pub async fn read_current_bindings(
                     for (i, binding) in bindings.iter().enumerate() {
                         let key_names: Vec<String> = binding
                             .iter()
-                            .map(|&key| keyboard::get_key_name(key))
+                            .map(|&key| {
+                                KeyCode::from_u8(key)
+                                    .map(|k| k.name())
+                                    .unwrap_or_else(|| format!("Unknown({:#04x})", key))
+                            })
                             .collect();
                         debug!(
                             button = BUTTON_NAMES[i + 8],

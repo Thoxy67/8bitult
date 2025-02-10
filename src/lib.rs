@@ -28,17 +28,17 @@ impl BleKeyboard {
             error!("No Bluetooth adapters found");
             return Err("No Bluetooth adapters found".into());
         }
-        
+
         let mut found_device = None;
         'adapter_loop: for adapter in adapter_list.iter() {
             debug!("Scanning for devices on adapter");
             adapter.start_scan(ScanFilter::default()).await?;
-            
+
             // Continuer le scan jusqu'à ce que l'appareil soit trouvé
             while found_device.is_none() {
                 let peripherals = adapter.peripherals().await?;
                 for peripheral in peripherals.iter() {
-                    println!("{:?}", peripheral);
+                    info!("{:?}", peripheral);
                     let properties = peripheral.properties().await?;
                     if let Some(local_name) = properties.and_then(|p| p.local_name) {
                         debug!(?local_name, "Found device");

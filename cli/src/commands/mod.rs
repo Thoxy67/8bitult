@@ -93,7 +93,6 @@ pub async fn handle_read() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("\nCurrent bindings configuration:");
     ui::print_bindings(&current_bindings, &config::BUTTON_NAMES);
 
     ui::print_step("Disconnecting device...");
@@ -161,7 +160,6 @@ pub async fn handle_save(
     ui::print_step("Reading current bindings...");
     let current_bindings = keyboard.read_current_bindings().await?;
 
-    println!("\nCurrent bindings configuration:");
     ui::print_bindings(&current_bindings, &config::BUTTON_NAMES);
 
     let profile = Profile::from_key_bindings(name.clone(), &current_bindings, description);

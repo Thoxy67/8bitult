@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(get_log_level(cli.verbose))
         .init();
 
-    ui::print_section_header("8Bitdo Micro Configurator");
+    ui::print_section_header("            8Bitdo Micro Configurator");
 
     match cli.command {
         cli::Commands::List => {
