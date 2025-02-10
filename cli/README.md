@@ -165,6 +165,8 @@ L1 = ["keycode(04)", "keycode(05)"]  # Using raw key codes
 R1 = ["A", "keycode(06)"]            # Mixing predefined keys and key codes
 ```
 
+For detailed information about HID keycodes, please refer to the [Keycodes documentation](doc/keycodes.md)
+
 ### Available Keys
 
 The tool supports a wide range of keys including:
