@@ -45,7 +45,7 @@ pub fn print_bindings(bindings: &[[u8; 4]], button_names: &[&str]) {
             let key_names: Vec<String> = binding
                 .iter()
                 .map(|&key| match KeyCode::from_u8(key) {
-                    Some(KeyCode::Null) => "-".to_string(), // Si c'est une touche Null, on affiche "-"
+                    Some(KeyCode::None) => "-".to_string(), // Si c'est une touche Null, on affiche "-"
                     Some(k) => k.name(), // Si c'est une touche connue, on affiche son nom
                     None => format!("key({:02x})", key), // Si c'est une touche inconnue, on affiche son code
                 })

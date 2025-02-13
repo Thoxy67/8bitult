@@ -134,7 +134,7 @@ impl Profile {
             .map(|(i, &name)| (name, i))
             .collect();
 
-        let mut result = vec![[KeyCode::Null.to_u8(); 4]; 16];
+        let mut result = vec![[KeyCode::None.to_u8(); 4]; 16];
 
         for (button, keys) in &self.bindings {
             let idx = *button_map
@@ -159,7 +159,7 @@ impl Profile {
         let mut binding_map = HashMap::new();
 
         for (i, binding) in bindings.iter().enumerate() {
-            if binding.iter().any(|&k| k != KeyCode::Null.to_u8()) {
+            if binding.iter().any(|&k| k != KeyCode::None.to_u8()) {
                 let button_name = config::BUTTON_NAMES[i].to_string();
                 let key_names: Vec<String> = binding
                     .iter()
