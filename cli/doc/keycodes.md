@@ -3,6 +3,22 @@
 ## Important Note About Keyboard Layouts
 This documentation is based on the US QWERTY keyboard layout. When using these keycodes with different keyboard layouts (like AZERTY, QWERTZ, etc.), you must refer to the physical position of the key on a US QWERTY keyboard, not the character it produces.
 
+For example, if you want to bind the 'A' key on an AZERTY keyboard, you should use the keycode for 'Q' (0x14) because that's where the 'A' is physically located on a QWERTY layout.
+
+![KB_United_States](https://upload.wikimedia.org/wikipedia/commons/d/da/KB_United_States.svg)
+
+## Using Custom Keycodes
+Keycodes can be specified in two ways in your configuration:
+1. Using predefined key names: `"A"`, `"ENTER"`, `"LEFT_SHIFT"`, etc.
+2. Using raw keycodes: `keycode(04)` for 'A', `keycode(28)` for 'ENTER', etc.
+
+Example:
+```toml
+[bindings]
+L1 = ["keycode(04)", "keycode(05)"]  # Maps to 'A' and 'B' keys (physical position on QWERTY)
+R1 = ["A", "keycode(06)"]            # Maps to 'A' and 'C' keys (physical position on QWERTY)
+```
+
 ## Complete Keycode Reference Table
 Below is the complete reference table of all available keycodes. Remember that these codes correspond to physical key positions on a US QWERTY keyboard.
 
@@ -209,3 +225,8 @@ Below is the complete reference table of all available keycodes. Remember that t
 | 253 | 0xFD | Reserved253 | Reserved |
 | 254 | 0xFE | Reserved254 | Reserved |
 | 255 | 0xFF | Reserved255 | Reserved |
+
+Notes:
+- Codes not listed are reserved or unassigned
+- All numeric values are represented in both decimal and hexadecimal for convenience
+- International keys are typically used for language-specific functions
