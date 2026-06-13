@@ -6,7 +6,7 @@ use tracing::{debug, info};
 
 #[cfg(target_os = "linux")]
 pub async fn ensure_bluetooth_enabled() -> Result<(), Box<dyn Error>> {
-    // Vérifie l'état via le cache de bluetoothctl (commande rapide)
+    // Check the current state via bluetoothctl's cache (a fast call).
 
     use std::process::Stdio;
     let status = Command::new("bluetoothctl")
@@ -16,13 +16,13 @@ pub async fn ensure_bluetooth_enabled() -> Result<(), Box<dyn Error>> {
         .output()?;
     let status_str = String::from_utf8_lossy(&status.stdout);
 
-    // Si déjà activé et en scan, on ne fait rien
+    // Already powered and scanning: nothing to do.
     if status_str.contains("Powered: yes") {
         if status_str.contains("Discovering: yes") {
             debug!("Bluetooth already powered and scanning");
             return Ok(());
         }
-        // Juste besoin de scanner
+        // Powered, just need to start scanning.
         debug!("Bluetooth powered, starting scan");
         Command::new("bluetoothctl")
             .args(["scan", "on"])
@@ -32,7 +32,7 @@ pub async fn ensure_bluetooth_enabled() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    // Si on arrive ici, il faut tout initialiser
+    // Otherwise we need to power on and start scanning from scratch.
     info!("Bluetooth needs initialization");
     Command::new("bluetoothctl")
         .args(["power", "on"])

@@ -1,22 +1,23 @@
 # 8BitDo Micro Configurator
 
-A command-line interface tool for configuring your 8BitDo Micro controller key bindings.
+A command-line tool for reading and changing the key bindings on an 8BitDo Micro controller.
 
 ## Features
 
-- Read current key bindings from your device
-- Load and apply key binding profiles
-- Manage multiple binding profiles
-- Verify applied configurations
-- Support for local and system-wide profiles
+- Read the current key bindings from the device
+- Apply a binding profile from a TOML file
+- Save the device's current bindings into a new profile
+- List the profiles it can find
+- Export and import profiles as a compressed archive
+- Verify that bindings were applied by reading them back
 
 ## Installation
 
 ### Prerequisites
 
-- Rust and Cargo installed on your system
-- A compatible 8BitDo Micro controller
-- Linux/macOS with Bluetooth support
+- Rust and Cargo
+- An 8BitDo Micro controller
+- Linux or macOS with Bluetooth. On Linux you also need BlueZ (`bluetoothctl`).
 
 ### Building from source
 
@@ -26,97 +27,95 @@ cd 8bitult
 cargo build --release
 ```
 
-The binary will be available at `target/release/8bitult-cli`
+The binary ends up at `target/release/8bitult-cli`.
 
 ## Usage
-
-### Commands Overview
 
 ```bash
 8bitult-cli [COMMAND] [OPTIONS]
 ```
 
-Available commands:
-- `list`: Display all available binding profiles with their descriptions
-- `read`: Read and display current device bindings
-- `attach`: Apply a binding profile to the device
-- `save`: Save current device configuration as a new profile
-- `backup`: Import or export profiles
+Commands:
 
-### List Available Profiles
+- `list` shows the profiles it can find
+- `read` reads and prints the current device bindings
+- `attach` writes a profile to the device
+- `save` reads the device and saves the result as a profile
+- `backup` exports or imports profiles
 
-List all available binding profiles with their descriptions:
+Add `-v` for info logs, `-vv` for debug, `-vvv` for trace. This is the first thing to reach for when a command cannot find or talk to the controller.
+
+### List profiles
 
 ```bash
 8bitult-cli list
 ```
 
-Profiles can be stored in:
-- `./profiles/` (local to your current directory)
-- `~/.config/8bitult/profiles/` (system-wide)
+Profiles are looked up in two places:
 
-### Read Current Bindings
+- `./profiles/` next to where you run the command
+- `~/.config/8bitult/profiles/` for your user
 
-Display the current key bindings from your device:
+### Read current bindings
 
 ```bash
 8bitult-cli read
 ```
 
-### Attach a Profile
+If the bindings on the device match one of your saved profiles, the tool tells you which one.
 
-Apply a profile to your device using either the profile name or a direct path:
+### Attach a profile
+
+Apply a profile by name, or point straight at a file:
 
 ```bash
-# Using profile name
+# By profile name (the `name` field inside the TOML, not the file name)
 8bitult-cli attach -p "Default"
 
-# Using config file path
+# By file path
 8bitult-cli attach -c /path/to/profile.toml
 ```
 
-### Save Current Configuration
+After writing, the tool reads the bindings back and warns you if anything did not stick.
 
-Save the current device configuration as a new profile:
+### Save the current configuration
 
 ```bash
-# Basic save with name
+# Just a name
 8bitult-cli save -n "My Profile"
 
-# Save with description
+# With a description
 8bitult-cli save -n "My Profile" -d "Custom profile for gaming"
 
-# Save to specific location
-8bitult-cli save -n "My Profile" -o /path/to/save/profile.toml
+# To a specific file
+8bitult-cli save -n "My Profile" -o /path/to/profile.toml
 ```
 
-### Backup Management
+Without `-o`, the profile is written to `~/.config/8bitult/profiles/`, with the file name derived from the profile name (lowercased, spaces turned into underscores).
 
-Export all profiles to an archive:
+### Backup
+
+Both flags take the archive path as their argument.
+
 ```bash
-# Export to default backup.tar.zst
-8bitult-cli backup --export
+# Export every profile into one archive
+8bitult-cli backup --export backup.tar.zst
 
-# Export to specific file
-8bitult-cli backup --export --save my_backup.tar.zst
+# Import the profiles from an archive into your user profiles directory
+8bitult-cli backup --import backup.tar.zst
 ```
 
-Import profiles from archive(s):
-```bash
-# Import profiles from .tar.zst files in current directory
-8bitult-cli backup --import
-```
+Imported profiles are unpacked into `~/.config/8bitult/profiles/`.
 
-## Profile Configuration
+## Profile format
 
-Profiles are defined in TOML format and must include:
-- A `name` field identifying the profile
-- An optional `description` field providing additional information
-- A `bindings` section mapping buttons to their key assignments
-- Each button can have 0 to 4 key bindings
-- Keys can be specified by name or using `keycode(XX)` format where XX is a hexadecimal value
+A profile is a TOML file with three parts:
 
-Here's an example:
+- `name`: how the profile is identified by `attach -p` and shown by `list`
+- `description`: optional free text
+- `[bindings]`: a button to keys mapping, where each button gets 0 to 4 keys
+
+Example:
 
 ```toml
 name = "Default"
@@ -141,58 +140,55 @@ LEFT = ["E"]
 RIGHT = ["F"]
 ```
 
-### Available Buttons
+### Buttons
 
-- Main buttons: `A`, `B`, `X`, `Y`
-- Shoulder buttons: `L1`, `R1`, `L2`, `R2`
-- Special buttons: `SELECT`, `START`, `HOME`, `LOGO`
+The button names are fixed. These are the 16 you can use:
+
+- Face buttons: `A`, `B`, `X`, `Y`
+- Shoulders: `L1`, `R1`, `L2`, `R2`
+- System: `SELECT`, `START`, `HOME`, `LOGO`
 - D-Pad: `UP`, `DOWN`, `LEFT`, `RIGHT`
 
-### Key Binding Rules
+Leave a button out, or give it an empty list, to bind nothing to it.
 
-1. Each button can have up to 4 keys assigned:
+### Keys
+
+Each button takes up to 4 keys. Anything past the fourth is ignored. A key can be written two ways:
+
+1. By name, for example `"A"`, `"Enter"`, `"Space"`, `"LeftShift"`.
+2. As a raw HID code in hex, for example `"keycode(04)"` for `A` or `"keycode(28)"` for `Enter`.
+
 ```toml
-# Example of maximum key bindings per button
-A = ["G", "B", "C", "D"]  # 4 keys assigned to button A
-START = ["ENTER"]         # Single key assigned
-HOME = []                 # No keys assigned
+[bindings]
+A = ["G", "B", "C", "D"]              # four keys on one button
+START = ["Enter"]                     # one key
+HOME = []                             # nothing
+L1 = ["keycode(04)", "keycode(05)"]   # raw codes for A and B
+R1 = ["A", "keycode(06)"]             # names and raw codes can mix
 ```
 
-2. Custom key codes can be used with the `keycode()` syntax:
-```toml
-# Using custom key codes (in hexadecimal)
-L1 = ["keycode(04)", "keycode(05)"]  # Using raw key codes
-R1 = ["A", "keycode(06)"]            # Mixing predefined keys and key codes
-```
+**Key names are case sensitive and must match the reference table exactly.** They follow the spelling in the keycode table, so:
 
-For detailed information about HID keycodes, please refer to the [Keycodes documentation](doc/keycodes.md)
+- Letters are single uppercase, `A` to `Z`
+- Number row keys are `Key1` to `Key9` and `Key0`, not `1` to `0`
+- Common keys are spelled out: `Enter`, `Escape`, `Backspace`, `Tab`, `Space`, `Delete`
+- Modifiers are `LeftCtrl`, `LeftShift`, `LeftAlt`, `LeftMeta`, and the `Right*` versions
+- Arrows are `Up`, `Down`, `Left`, `Right`
 
-### Available Keys
+If a name does not match, the command fails and tells you which key it could not resolve. When in doubt, use `keycode(XX)`.
 
-The tool supports a wide range of keys including:
-- Alphabet keys: `A` to `Z`
-- Numbers: `0` to `9`
-- Function keys: `F1` to `F12`
-- Special keys: `ESC`, `TAB`, `ENTER`, `SPACE`, etc.
-- Modifiers: `LEFT_SHIFT`, `RIGHT_SHIFT`, `LEFT_CTRL`, `RIGHT_CTRL`, etc.
-- Navigation: `UP`, `DOWN`, `LEFT`, `RIGHT`, `HOME`, `END`, etc.
-- And many more
-
-For a complete list of supported keys, use the built-in help:
-```bash
-8bitult-cli help
-```
+The full list of names and their codes is in [doc/keycodes.md](doc/keycodes.md). That file also explains an important detail: codes map to physical key positions on a US QWERTY keyboard, so on other layouts you bind by where the key sits, not by the letter printed on it.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Pull requests are welcome.
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a branch (`git checkout -b feature/my-change`)
+3. Commit your changes
+4. Push the branch
+5. Open a pull request

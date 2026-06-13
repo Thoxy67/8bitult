@@ -10,14 +10,11 @@ pub fn create_binding_command(
     for (i, key_group) in keys.iter().enumerate() {
         let pos = start_pos + (i * 4);
         if pos + 3 < cmd.len() && pos < end_pos {
-            cmd[pos] = key_group[0];
-            cmd[pos + 1] = key_group[1];
-            cmd[pos + 2] = key_group[2];
-            cmd[pos + 3] = key_group[3];
+            cmd[pos..pos + 4].copy_from_slice(key_group);
         }
     }
-    for i in end_pos..cmd.len() {
-        cmd[i] = 0;
+    if end_pos < cmd.len() {
+        cmd[end_pos..].fill(0);
     }
     cmd
 }

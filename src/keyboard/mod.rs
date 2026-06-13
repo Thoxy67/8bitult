@@ -1,9 +1,22 @@
+//! USB HID keyboard codes.
+//!
+//! [`KeyCode`] lists every value a key slot can hold, `0x00` through `0xFF`.
+//! The variant names are what profiles use to refer to keys by name, and they
+//! map to physical positions on a US QWERTY keyboard. See `cli/doc/keycodes.md`
+//! for the full table and layout notes.
+
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// A single USB HID keyboard usage code.
+///
+/// Every value in `0..=255` is a variant, so [`KeyCode::from_u8`] never fails.
+/// The `Debug`/[`Display`](std::fmt::Display) name of a variant (for example
+/// `Enter`) is the exact name profiles use to bind that key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum KeyCode {
     None = 0,                // 0x00
     ErrorRollOver = 1,       // 0x01
@@ -271,8 +284,9 @@ impl fmt::Display for KeyCode {
 
 impl KeyCode {
     pub fn from_u8(value: u8) -> Option<Self> {
-        use std::mem::transmute;
-        Some(unsafe { transmute(value) })
+        // Sound because the enum is `#[repr(u8)]` with a variant for every
+        // value in `0..=255`, so any `u8` maps to a valid discriminant.
+        Some(unsafe { std::mem::transmute::<u8, KeyCode>(value) })
     }
 
     pub fn to_u8(self) -> u8 {
@@ -281,5 +295,13 @@ impl KeyCode {
 
     pub fn name(&self) -> String {
         format!("{:?}", self)
+    }
+
+    /// Human-readable name for a raw key value, falling back to a hex code
+    /// for values that have no symbolic name.
+    pub fn display_name(value: u8) -> String {
+        Self::from_u8(value)
+            .map(|k| k.name())
+            .unwrap_or_else(|| format!("Unknown({:#04x})", value))
     }
 }

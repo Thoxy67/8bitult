@@ -7,7 +7,7 @@ use tabled::{
 
 #[derive(Tabled)]
 pub struct KeyBindingRow {
-    #[tabled(rename = "Touche")]
+    #[tabled(rename = "Button")]
     pub button: String,
     #[tabled(rename = "1")]
     pub key1: String,
@@ -41,21 +41,19 @@ pub fn print_bindings(bindings: &[[u8; 4]], button_names: &[&str]) {
     let rows: Vec<KeyBindingRow> = bindings
         .iter()
         .enumerate()
-        .map(|(i, binding)| {
-            let key_names: Vec<String> = binding
-                .iter()
-                .map(|&key| match KeyCode::from_u8(key) {
-                    Some(KeyCode::None) => "-".to_string(), // Si c'est une touche Null, on affiche "-"
-                    Some(k) => k.name(), // Si c'est une touche connue, on affiche son nom
-                    None => format!("key({:02x})", key), // Si c'est une touche inconnue, on affiche son code
-                })
-                .collect();
+        .map(|(i, &binding)| {
+            let name = |key: u8| match KeyCode::from_u8(key) {
+                Some(KeyCode::None) => "-".to_string(), // unused slot
+                Some(k) => k.name(),                    // known key: show its name
+                None => format!("key({:02x})", key),    // unknown: show the raw code
+            };
+            let [k1, k2, k3, k4] = binding;
             KeyBindingRow {
                 button: button_names[i].to_string(),
-                key1: key_names[0].clone(),
-                key2: key_names[1].clone(),
-                key3: key_names[2].clone(),
-                key4: key_names[3].clone(),
+                key1: name(k1),
+                key2: name(k2),
+                key3: name(k3),
+                key4: name(k4),
             }
         })
         .collect();
